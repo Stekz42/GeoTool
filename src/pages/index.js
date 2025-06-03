@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export default function Home() {
   const [restrictedFile, setRestrictedFile] = useState(null);
-  const [pedestrianFile, setPedestrianFile] = useState(null);
+  const [pedestrianFile, setPed FoleyFile] = useState(null);
   const [message, setMessage] = useState('');
   const [result, setResult] = useState(null);
 
@@ -10,6 +10,13 @@ export default function Home() {
     e.preventDefault();
     if (!restrictedFile || !pedestrianFile) {
       setMessage('Bitte beide Dateien auswählen');
+      return;
+    }
+
+    // Prüfe Dateigröße (Vercel-Limit: 4.5 MB)
+    const maxSize = 4.5 * 1024 * 1024; // 4.5 MB in Bytes
+    if (restrictedFile.size > maxSize || pedestrianFile.size > maxSize) {
+      setMessage('Fehler: Eine der Dateien ist zu groß (max. 4.5 MB). Bitte lokal mit `npm run transform` verarbeiten.');
       return;
     }
 
@@ -23,12 +30,18 @@ export default function Home() {
         method: 'POST',
         body: formData
       });
+
+      if (response.status === 413) {
+        setMessage('Fehler: Dateien sind zu groß für Vercel (max. 4.5 MB). Bitte lokal mit `npm run transform` verarbeiten.');
+        return;
+      }
+
       const data = await response.json();
       if (response.ok) {
         setMessage(data.message);
         setResult(data);
       } else {
-        setMessage(data.error);
+        setMessage(data.error || 'Ein Fehler ist aufgetreten');
       }
     } catch (error) {
       setMessage('Fehler: ' + error.message);
