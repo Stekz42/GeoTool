@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export default function Home() {
   const [restrictedFile, setRestrictedFile] = useState(null);
-  const [pedestrianFile, setPed FoleyFile] = useState(null);
+  const [pedestrianFile, setPedestrianFile] = useState(null);
   const [message, setMessage] = useState('');
   const [result, setResult] = useState(null);
 
