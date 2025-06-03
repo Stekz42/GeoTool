@@ -10,6 +10,7 @@ export const config = {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
+    console.log('Ungültige Methode:', req.method);
     return res.status(405).json({ error: 'Nur POST-Anfragen erlaubt' });
   }
 
@@ -17,6 +18,7 @@ export default async function handler(req, res) {
   let client;
 
   try {
+    console.log('Parse Dateien...');
     const { files } = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
@@ -24,24 +26,30 @@ export default async function handler(req, res) {
       });
     });
 
+    console.log('Prüfe Dateien...');
     const restrictedFile = files['restricted-zones']?.[0];
     const pedestrianFile = files['pedestrian-zones']?.[0];
     if (!restrictedFile || !pedestrianFile) {
+      console.log('Fehlende Dateien:', { restrictedFile: !!restrictedFile, pedestrianFile: !!pedestrianFile });
       return res.status(400).json({ error: 'Bitte beide Dateien hochladen' });
     }
 
+    console.log('Lese GeoJSON-Dateien...');
     let restrictedRaw, pedestrianRaw;
     try {
       restrictedRaw = JSON.parse(fs.readFileSync(restrictedFile.filepath, 'utf-8'));
     } catch (error) {
+      console.error('Fehler beim Parsen von restricted-zones:', error);
       return res.status(400).json({ error: 'restricted-zones-raw.geojson ist kein gültiges JSON: ' + error.message });
     }
     try {
       pedestrianRaw = JSON.parse(fs.readFileSync(pedestrianFile.filepath, 'utf-8'));
     } catch (error) {
+      console.error('Fehler beim Parsen von pedestrian-zones:', error);
       return res.status(400).json({ error: 'pedestrian-zones-raw.geojson ist kein gültiges JSON: ' + error.message });
     }
 
+    console.log('Transformiere Daten...');
     const restrictedZones = restrictedRaw.features.map(feature => {
       const [lng, lat] = feature.geometry.coordinates;
       const type = feature.properties.amenity || feature.properties.leisure || 'unknown';
@@ -55,6 +63,7 @@ export default async function handler(req, res) {
     }));
 
     try {
+      console.log('Verbinde mit MongoDB...');
       const { db, client: dbClient } = await connectToDatabase();
       client = dbClient;
 
@@ -68,11 +77,14 @@ export default async function handler(req, res) {
       console.log('Speichere neue Daten...');
       if (restrictedZones.length > 0) {
         await restrictedCollection.insertMany(restrictedZones);
+        console.log(`Erfolgreich ${restrictedZones.length} restricted-zones gespeichert`);
       }
       if (pedestrianZones.length > 0) {
         await pedestrianCollection.insertMany(pedestrianZones);
+        console.log(`Erfolgreich ${pedestrianZones.length} pedestrian-zones gespeichert`);
       }
 
+      console.log('Sende Erfolgsantwort...');
       res.status(200).json({
         message: `Erfolgreich gespeichert: ${restrictedZones.length} restricted-zones, ${pedestrianZones.length} pedestrian-zones`,
         restrictedZones,
@@ -88,7 +100,7 @@ export default async function handler(req, res) {
       }
     }
   } catch (error) {
-    console.error('Fehler:', error.message);
+    console.error('Allgemeiner Fehler:', error);
     res.status(500).json({ error: 'Verarbeitung fehlgeschlagen: ' + error.message });
   }
 }
