@@ -4,7 +4,7 @@ import fs from 'fs';
 
 export const config = {
   api: {
-    bodyParser: false // Deaktiviere Standard-Body-Parser für Datei-Uploads
+    bodyParser: false
   }
 };
 
@@ -14,10 +14,9 @@ export default async function handler(req, res) {
   }
 
   const form = formidable({ multiples: true });
-  let db;
+  let client;
 
   try {
-    // 1. Parse die hochgeladenen Dateien
     const { files } = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
@@ -25,14 +24,12 @@ export default async function handler(req, res) {
       });
     });
 
-    // 2. Prüfe, ob beide Dateien vorhanden sind
     const restrictedFile = files['restricted-zones']?.[0];
     const pedestrianFile = files['pedestrian-zones']?.[0];
     if (!restrictedFile || !pedestrianFile) {
       return res.status(400).json({ error: 'Bitte beide Dateien hochladen' });
     }
 
-    // 3. Lies und parse die GeoJSON-Dateien mit Fehlerbehandlung
     let restrictedRaw, pedestrianRaw;
     try {
       restrictedRaw = JSON.parse(fs.readFileSync(restrictedFile.filepath, 'utf-8'));
@@ -41,11 +38,11 @@ export default async function handler(req, res) {
     }
     try {
       pedestrianRaw = JSON.parse(fs.readFileSync(pedestrianFile.filepath, 'utf-8'));
-    } catch (error) {
+    } catch (error<|control421|>
+
       return res.status(400).json({ error: 'pedestrian-zones-raw.geojson ist kein gültiges JSON: ' + error.message });
     }
 
-    // 4. Transformiere restricted-zones
     const restrictedZones = restrictedRaw.features.map(feature => {
       const [lng, lat] = feature.geometry.coordinates;
       const type = feature.properties.amenity || feature.properties.leisure || 'unknown';
@@ -53,34 +50,42 @@ export default async function handler(req, res) {
       return { lat, lng, radius: 100, type, name };
     });
 
-    // 5. Transformiere pedestrian-zones
     const pedestrianZones = pedestrianRaw.features.map(feature => ({
       type: 'pedestrian',
       coordinates: feature.geometry.coordinates
     }));
 
-    // 6. Speichere in MongoDB
-    db = await connectToDatabase();
-    const restrictedCollection = db.collection('restricted-zones');
-    const pedestrianCollection = db.collection('pedestrian-zones');
+    try {
+      const { db, client: dbClient } = await connectToDatabase();
+      client = dbClient; // Speichere den Client, um ihn später zu schließen
 
-    await restrictedCollection.deleteMany({});
-    await pedestrianCollection.deleteMany({});
+      const restrictedCollection = db.collection('restricted-zones');
+      const pedestrianCollection = db.collection('pedestrian-zones');
 
-    if (restrictedZones.length > 0) {
-      await restrictedCollection.insertMany(restrictedZones);
+      await restrictedCollection.deleteMany({});
+      await pedestrianCollection.deleteMany({});
+
+      if (restrictedZones.length > 0) {
+        await restrictedCollection.insertMany(restrictedZones);
+      }
+      if (pedestrianZones.length > 0) {
+        await pedestrianCollection.insertMany(pedestrianZones);
+      }
+
+      res.status(200).json({
+        message: `Erfolgreich gespeichert: ${restrictedZones.length} restricted-zones, ${pedestrianZones.length} pedestrian-zones`,
+        restrictedZones,
+        pedestrianZones
+      });
+    } catch (error) {
+      console.error('Datenbankfehler:', error);
+      res.status(500).json({ error: 'Verarbeitung fehlgeschlagen: ' + error.message });
+    } finally {
+      if (client) {
+        await client.close();
+        console.log('MongoDB-Verbindung geschlossen');
+      }
     }
-    if (pedestrianZones.length > 0) {
-      await pedestrianCollection.insertMany(pedestrianZones);
-    }
-
-    // 7. Sende Erfolgsmeldung
-    res.status(200).json({
-      message: `Erfolgreich gespeichert: ${restrictedZones.length} restricted-zones, ${pedestrianZones.length} pedestrian-zones`,
-      restrictedZones,
-      pedestrianZones
-    });
-
   } catch (error) {
     console.error('Fehler:', error.message);
     res.status(500).json({ error: 'Verarbeitung fehlgeschlagen: ' + error.message });
