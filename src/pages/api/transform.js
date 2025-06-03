@@ -1,5 +1,4 @@
 import formidable from 'formidable';
-import { connectToDatabase } from '../../config/db';
 import fs from 'fs';
 
 export const config = {
@@ -68,44 +67,12 @@ export default async function handler(req, res) {
       coordinates: feature.geometry.coordinates
     }));
 
-    let client;
-    try {
-      console.log('Verbinde mit MongoDB...');
-      const { db, client: dbClient } = await connectToDatabase();
-      client = dbClient;
-
-      const restrictedCollection = db.collection('restricted-zones');
-      const pedestrianCollection = db.collection('pedestrian-zones');
-
-      console.log('Lösche alte Daten...');
-      await restrictedCollection.deleteMany({});
-      await pedestrianCollection.deleteMany({});
-
-      console.log('Speichere neue Daten...');
-      if (restrictedZones.length > 0) {
-        await restrictedCollection.insertMany(restrictedZones);
-        console.log(`Erfolgreich ${restrictedZones.length} restricted-zones gespeichert`);
-      }
-      if (pedestrianZones.length > 0) {
-        await pedestrianCollection.insertMany(pedestrianZones);
-        console.log(`Erfolgreich ${pedestrianZones.length} pedestrian-zones gespeichert`);
-      }
-
-      console.log('Sende Erfolgsantwort...');
-      res.status(200).json({
-        message: `Erfolgreich gespeichert: ${restrictedZones.length} restricted-zones, ${pedestrianZones.length} pedestrian-zones`,
-        restrictedZones,
-        pedestrianZones
-      });
-    } catch (error) {
-      console.error('Datenbankfehler:', error);
-      return res.status(500).json({ error: 'Verarbeitung fehlgeschlagen: ' + error.message });
-    } finally {
-      if (client) {
-        await client.close();
-        console.log('MongoDB-Verbindung geschlossen');
-      }
-    }
+    console.log('Sende Erfolgsantwort...');
+    res.status(200).json({
+      message: `Erfolgreich verarbeitet: ${restrictedZones.length} restricted-zones, ${pedestrianZones.length} pedestrian-zones`,
+      restrictedZones,
+      pedestrianZones
+    });
   } catch (error) {
     console.error('Unbehandelter Fehler:', error);
     return res.status(500).json({ error: 'Serverfehler: ' + error.message });
