@@ -9,20 +9,26 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    console.log('Ungültige Methode:', req.method);
-    return res.status(405).json({ error: 'Nur POST-Anfragen erlaubt' });
-  }
-
-  const form = formidable({ multiples: true });
-  let client;
-
   try {
+    console.log('API-Anfrage empfangen:', req.method);
+
+    if (req.method !== 'POST') {
+      console.log('Ungültige Methode:', req.method);
+      return res.status(405).json({ error: 'Nur POST-Anfragen erlaubt' });
+    }
+
+    console.log('Initialisiere formidable...');
+    const form = formidable({ multiples: true });
+
     console.log('Parse Dateien...');
     const { files } = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve({ fields, files });
+        if (err) {
+          console.error('Fehler beim Parsen der Dateien:', err);
+          reject(err);
+        } else {
+          resolve({ fields, files });
+        }
       });
     });
 
@@ -62,6 +68,7 @@ export default async function handler(req, res) {
       coordinates: feature.geometry.coordinates
     }));
 
+    let client;
     try {
       console.log('Verbinde mit MongoDB...');
       const { db, client: dbClient } = await connectToDatabase();
@@ -92,7 +99,7 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error('Datenbankfehler:', error);
-      res.status(500).json({ error: 'Verarbeitung fehlgeschlagen: ' + error.message });
+      return res.status(500).json({ error: 'Verarbeitung fehlgeschlagen: ' + error.message });
     } finally {
       if (client) {
         await client.close();
@@ -100,7 +107,7 @@ export default async function handler(req, res) {
       }
     }
   } catch (error) {
-    console.error('Allgemeiner Fehler:', error);
-    res.status(500).json({ error: 'Verarbeitung fehlgeschlagen: ' + error.message });
+    console.error('Unbehandelter Fehler:', error);
+    return res.status(500).json({ error: 'Serverfehler: ' + error.message });
   }
 }
