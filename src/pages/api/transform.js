@@ -55,6 +55,7 @@ export default async function handler(req, res) {
     }));
 
     try {
+      console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'Vorhanden' : 'Nicht vorhanden');
       const { db, client: dbClient } = await connectToDatabase();
       client = dbClient;
 
