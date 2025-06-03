@@ -38,8 +38,7 @@ export default async function handler(req, res) {
     }
     try {
       pedestrianRaw = JSON.parse(fs.readFileSync(pedestrianFile.filepath, 'utf-8'));
-    } catch (error<|control421|>
-
+    } catch (error) {
       return res.status(400).json({ error: 'pedestrian-zones-raw.geojson ist kein gültiges JSON: ' + error.message });
     }
 
@@ -57,7 +56,7 @@ export default async function handler(req, res) {
 
     try {
       const { db, client: dbClient } = await connectToDatabase();
-      client = dbClient; // Speichere den Client, um ihn später zu schließen
+      client = dbClient;
 
       const restrictedCollection = db.collection('restricted-zones');
       const pedestrianCollection = db.collection('pedestrian-zones');
