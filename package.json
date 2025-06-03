@@ -1,19 +1,16 @@
 {
   "name": "geojson-transformer",
   "version": "1.0.0",
-  "description": "A Next.js app to transform GeoJSON files and store them in MongoDB",
+  "description": "A Next.js app to transform GeoJSON files and download the results",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "transform": "node src/scripts/transform-local.js"
+    "start": "next start"
   },
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
     "formidable": "^3.5.2",
-    "mongodb": "^6.9.0",
-    "next": "^14.2.15",
-    "dotenv": "^16.4.5"
+    "next": "^14.2.15"
   }
 }
