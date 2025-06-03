@@ -8,14 +8,14 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  console.log('API-Anfrage empfangen:', req.method);
+
+  if (req.method !== 'POST') {
+    console.log('Ungültige Methode:', req.method);
+    return res.status(405).json({ error: 'Nur POST-Anfragen erlaubt' });
+  }
+
   try {
-    console.log('API-Anfrage empfangen:', req.method);
-
-    if (req.method !== 'POST') {
-      console.log('Ungültige Methode:', req.method);
-      return res.status(405).json({ error: 'Nur POST-Anfragen erlaubt' });
-    }
-
     console.log('Initialisiere formidable...');
     const form = formidable({ multiples: true });
 
@@ -26,6 +26,7 @@ export default async function handler(req, res) {
           console.error('Fehler beim Parsen der Dateien:', err);
           reject(err);
         } else {
+          console.log('Dateien erfolgreich geparst:', Object.keys(files));
           resolve({ fields, files });
         }
       });
@@ -39,16 +40,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Bitte beide Dateien hochladen' });
     }
 
+    console.log('Dateipfade:', { restricted: restrictedFile.filepath, pedestrian: pedestrianFile.filepath });
+
     console.log('Lese GeoJSON-Dateien...');
     let restrictedRaw, pedestrianRaw;
     try {
-      restrictedRaw = JSON.parse(fs.readFileSync(restrictedFile.filepath, 'utf-8'));
+      const restrictedContent = fs.readFileSync(restrictedFile.filepath, 'utf-8');
+      console.log('Restricted-Datei gelesen, Größe:', restrictedContent.length);
+      restrictedRaw = JSON.parse(restrictedContent);
     } catch (error) {
       console.error('Fehler beim Parsen von restricted-zones:', error);
       return res.status(400).json({ error: 'restricted-zones-raw.geojson ist kein gültiges JSON: ' + error.message });
     }
     try {
-      pedestrianRaw = JSON.parse(fs.readFileSync(pedestrianFile.filepath, 'utf-8'));
+      const pedestrianContent = fs.readFileSync(pedestrianFile.filepath, 'utf-8');
+      console.log('Pedestrian-Datei gelesen, Größe:', pedestrianContent.length);
+      pedestrianRaw = JSON.parse(pedestrianContent);
     } catch (error) {
       console.error('Fehler beim Parsen von pedestrian-zones:', error);
       return res.status(400).json({ error: 'pedestrian-zones-raw.geojson ist kein gültiges JSON: ' + error.message });
@@ -67,14 +74,16 @@ export default async function handler(req, res) {
       coordinates: feature.geometry.coordinates
     }));
 
+    console.log('Daten transformiert:', { restrictedCount: restrictedZones.length, pedestrianCount: pedestrianZones.length });
+
     console.log('Sende Erfolgsantwort...');
-    res.status(200).json({
+    return res.status(200).json({
       message: `Erfolgreich verarbeitet: ${restrictedZones.length} restricted-zones, ${pedestrianZones.length} pedestrian-zones`,
       restrictedZones,
       pedestrianZones
     });
   } catch (error) {
-    console.error('Unbehandelter Fehler:', error);
+    console.error('Unbehandelter Fehler in der API-Route:', error);
     return res.status(500).json({ error: 'Serverfehler: ' + error.message });
   }
 }
