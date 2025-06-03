@@ -4,7 +4,7 @@ export default function Home() {
   const [restrictedFile, setRestrictedFile] = useState(null);
   const [pedestrianFile, setPedestrianFile] = useState(null);
   const [message, setMessage] = useState('');
-  const [result, setResult] = useState(null);
+  const [downloadLinks, setDownloadLinks] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,7 +16,7 @@ export default function Home() {
     // Prüfe Dateigröße (Vercel-Limit: 4.5 MB)
     const maxSize = 4.5 * 1024 * 1024; // 4.5 MB in Bytes
     if (restrictedFile.size > maxSize || pedestrianFile.size > maxSize) {
-      setMessage('Fehler: Eine der Dateien ist zu groß (max. 4.5 MB). Bitte lokal mit `npm run transform` verarbeiten.');
+      setMessage('Fehler: Eine der Dateien ist zu groß (max. 4.5 MB).');
       return;
     }
 
@@ -32,23 +32,32 @@ export default function Home() {
       });
 
       if (response.status === 413) {
-        setMessage('Fehler: Dateien sind zu groß für Vercel (max. 4.5 MB). Bitte lokal mit `npm run transform` verarbeiten.');
+        setMessage('Fehler: Dateien sind zu groß für Vercel (max. 4.5 MB).');
         return;
       }
 
-      // Prüfe, ob die Antwort leer ist
       const text = await response.text();
       if (!text) {
         setMessage('Fehler: Leere Antwort von der API erhalten.');
         return;
       }
 
-      // Versuche, die Antwort als JSON zu parsen
       try {
         const data = JSON.parse(text);
         if (response.ok) {
           setMessage(data.message);
-          setResult(data);
+
+          // Erstelle Download-Links für die JSON-Dateien
+          const restrictedBlob = new Blob([JSON.stringify(data.restrictedZones, null, 2)], { type: 'application/json' });
+          const pedestrianBlob = new Blob([JSON.stringify(data.pedestrianZones, null, 2)], { type: 'application/json' });
+
+          const restrictedUrl = URL.createObjectURL(restrictedBlob);
+          const pedestrianUrl = URL.createObjectURL(pedestrianBlob);
+
+          setDownloadLinks({
+            restricted: restrictedUrl,
+            pedestrian: pedestrianUrl
+          });
         } else {
           setMessage(data.error || 'Ein Fehler ist aufgetreten');
         }
@@ -93,19 +102,25 @@ export default function Home() {
           {message}
         </p>
       )}
-      {result && (
+      {downloadLinks && (
         <div style={{ marginTop: '20px' }}>
-          <h2>Ergebnis:</h2>
-          <pre style={{ background: '#f0f0f0', padding: '10px', overflowX: 'auto' }}>
-            {JSON.stringify(
-              {
-                restrictedZones: result.restrictedZones,
-                pedestrianZones: result.pedestrianZones
-              },
-              null,
-              2
-            )}
-          </pre>
+          <h2>Downloads:</h2>
+          <div>
+            <a
+              href={downloadLinks.restricted}
+              download="restricted-zones.json"
+              style={{ marginRight: '10px', padding: '10px', background: '#0070f3', color: 'white', textDecoration: 'none' }}
+            >
+              Download restricted-zones.json
+            </a>
+            <a
+              href={downloadLinks.pedestrian}
+              download="pedestrian-zones.json"
+              style={{ padding: '10px', background: '#0070f3', color: 'white', textDecoration: 'none' }}
+            >
+              Download pedestrian-zones.json
+            </a>
+          </div>
         </div>
       )}
     </div>
