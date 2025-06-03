@@ -36,12 +36,24 @@ export default function Home() {
         return;
       }
 
-      const data = await response.json();
-      if (response.ok) {
-        setMessage(data.message);
-        setResult(data);
-      } else {
-        setMessage(data.error || 'Ein Fehler ist aufgetreten');
+      // Prüfe, ob die Antwort leer ist
+      const text = await response.text();
+      if (!text) {
+        setMessage('Fehler: Leere Antwort von der API erhalten.');
+        return;
+      }
+
+      // Versuche, die Antwort als JSON zu parsen
+      try {
+        const data = JSON.parse(text);
+        if (response.ok) {
+          setMessage(data.message);
+          setResult(data);
+        } else {
+          setMessage(data.error || 'Ein Fehler ist aufgetreten');
+        }
+      } catch (error) {
+        setMessage('Fehler: Ungültige JSON-Antwort von der API: ' + error.message);
       }
     } catch (error) {
       setMessage('Fehler: ' + error.message);
