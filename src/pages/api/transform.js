@@ -1,5 +1,6 @@
 import formidable from 'formidable';
 import { connectToDatabase } from '../../config/db';
+import fs from 'fs';
 
 export const config = {
   api: {
@@ -31,13 +32,18 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Bitte beide Dateien hochladen' });
     }
 
-    // 3. Lies und parse die GeoJSON-Dateien
-    const restrictedRaw = JSON.parse(
-      require('fs').readFileSync(restrictedFile.filepath, 'utf-8')
-    );
-    const pedestrianRaw = JSON.parse(
-      require('fs').readFileSync(pedestrianFile.filepath, 'utf-8')
-    );
+    // 3. Lies und parse die GeoJSON-Dateien mit Fehlerbehandlung
+    let restrictedRaw, pedestrianRaw;
+    try {
+      restrictedRaw = JSON.parse(fs.readFileSync(restrictedFile.filepath, 'utf-8'));
+    } catch (error) {
+      return res.status(400).json({ error: 'restricted-zones-raw.geojson ist kein gültiges JSON: ' + error.message });
+    }
+    try {
+      pedestrianRaw = JSON.parse(fs.readFileSync(pedestrianFile.filepath, 'utf-8'));
+    } catch (error) {
+      return res.status(400).json({ error: 'pedestrian-zones-raw.geojson ist kein gültiges JSON: ' + error.message });
+    }
 
     // 4. Transformiere restricted-zones
     const restrictedZones = restrictedRaw.features.map(feature => {
