@@ -1,3 +1,6 @@
+import formidable from 'formidable';
+import fs from 'fs';
+
 export const config = {
   api: {
     bodyParser: false
@@ -13,14 +16,38 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('Sende Testantwort...');
-    return res.status(200).json({
-      message: 'Testantwort von der API',
-      restrictedZones: [{ lat: 52.52, lng: 13.405, radius: 100, type: 'school', name: 'Beispiel-Schule' }],
-      pedestrianZones: [{ type: 'pedestrian', coordinates: [[[13.4, 52.5], [13.41, 52.5], [13.41, 52.51], [13.4, 52.51]]] }]
+    console.log('Initialisiere formidable...');
+    const form = formidable({ multiples: true });
+
+    console.log('Parse Dateien...');
+    const { files } = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) {
+          console.error('Fehler beim Parsen der Dateien:', err);
+          reject(err);
+        } else {
+          console.log('Dateien erfolgreich geparst:', Object.keys(files));
+          resolve({ fields, files });
+        }
+      });
     });
-  } catch (error) {
-    console.error('Unbehandelter Fehler in der API-Route:', error);
-    return res.status(500).json({ error: 'Serverfehler: ' + error.message });
-  }
-}
+
+    console.log('Prüfe Dateien...');
+    const restrictedFile = files['restricted-zones']?.[0];
+    const pedestrianFile = files['pedestrian-zones']?.[0];
+    if (!restrictedFile || !pedestrianFile) {
+      console.log('Fehlende Dateien:', { restrictedFile: !!restrictedFile, pedestrianFile: !!pedestrianFile });
+      return res.status(400).json({ error: 'Bitte beide Dateien hochladen' });
+    }
+
+    console.log('Dateipfade:', { restricted: restrictedFile.filepath, pedestrian: pedestrianFile.filepath });
+
+    console.log('Lese GeoJSON-Dateien...');
+    let restrictedRaw, pedestrianRaw;
+    try {
+      const restrictedContent = fs.readFileSync(restrictedFile.filepath, 'utf-8');
+      console.log('Restricted-Datei gelesen, Größe:', restrictedContent.length);
+      restrictedRaw = JSON.parse(restrictedContent);
+    } catch (error) {
+      console.error('Fehler beim Parsen von restricted-zones:', error);
+      return res.status(400).json({ error: 'restricted-zones-raw.geojson ist kein gültiges JSON: ' +
